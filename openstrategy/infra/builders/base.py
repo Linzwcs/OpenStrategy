@@ -1,23 +1,21 @@
+# infra/builders/base.py
 from abc import ABC, abstractmethod
-from pathlib import Path
-from ...protocol import ExecutionContext, RuntimeConfig
+from openstrategy.protocol import StrategyAsset, ExecutionContext
 
 
 class EnvBuilder(ABC):
-    """环境构建器抽象基类"""
+    """环境构建器：将策略转换为可执行环境"""
 
     @abstractmethod
-    def prepare(self, runtime: RuntimeConfig, strategy_path: Path) -> Path:
+    def prepare(self, asset: StrategyAsset) -> ExecutionContext:
         """
-        准备环境（下载、编译、安装）。
-        返回环境的物理根目录。
+        Returns:
+            ExecutionContext: 包含 python 路径、环境变量、工作目录
         """
         pass
 
-    @abstractmethod
-    def get_execution_context(self, env_root: Path) -> ExecutionContext:
-        """
-        获取用于执行的上下文信息（Python路径、环境变量等）。
-        实现 Builder 与 Executor 的解耦。
-        """
-        pass
+    def get_cache_key(self, asset: StrategyAsset) -> str:
+        """计算环境缓存 Key（基于依赖 Hash）"""
+        import hashlib
+        deps_str = str(sorted(asset.runtime.dependencies))
+        return hashlib.sha256(deps_str.encode()).hexdigest()[:12]

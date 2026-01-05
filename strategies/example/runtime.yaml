@@ -1,0 +1,4 @@
+backend: "uv"
+python_version: "3.10"
+dependencies:
+  - "requests"

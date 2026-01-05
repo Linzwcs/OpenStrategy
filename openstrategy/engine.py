@@ -11,6 +11,7 @@ from openstrategy.workspace import Workspace
 from openstrategy.hub.client import HubClient
 from openstrategy.protocol import RuntimeConfig, StrategyManifest, StrategyAsset
 from openstrategy.events import EventBus, JobStarted, JobCompleted, JobFailed
+from openstrategy.core.vfs import JobVFS
 
 logger = logging.getLogger("Engine")
 
@@ -39,30 +40,45 @@ class Engine:
         self.executor = executor_cls(**executor_config.get('params', {}))
         self.hub = HubClient()
 
-    def run_job(self, strategy_id: str, strategy_args: dict[str, str]) -> str:
-
+    def run_job(self, strategy_id: str, strategy_args: dict) -> str:
         job_id = f"job_{uuid.uuid4().hex[:8]}"
-        workspace = Workspace(job_id)
+
+        vfs = JobVFS(job_id, workspace_root=Path("runs"))
 
         strategy_path = self.hub.download(strategy_id)
         asset = self._load_strategy_asset(strategy_path)
 
         exec_context = self.builder.prepare(asset)
 
+        if "input_file" in strategy_args:
+            staged_path = vfs.stage_input(strategy_args["input_file"])
+            strategy_args["input_file"] = str(staged_path)
+
+        context_data = {
+            "task_id": job_id,
+            "working_dir": exec_context.working_dir,
+            "params": strategy_args,
+            "vfs_root": str(vfs.root)
+        }
+
         launcher_cmd = [
-            "-m", "opensynth.core.launcher", "--task-id", job_id, "--cwd",
+            "-m", "openstrategy.core.launcher", "--task-id", job_id, "--cwd",
             str(exec_context.working_dir), "--module",
             asset.manifest.entry_module, "--func", asset.manifest.entry_point,
             "--params",
-            json.dumps(strategy_args)
+            json.dumps(context_data)
         ]
 
-        EventBus.emit(JobStarted(job_id=job_id, strategy_name=strategy_id))
-
+        log_path = str(vfs.logs / "worker.log")
         task_id = self.executor.submit(cmd=launcher_cmd,
                                        context=exec_context,
                                        resources=self.config['infra'].get(
-                                           'resources', {}))
+                                           'resources', {}),
+                                       log_path=log_path)
+
+        print(f"📋 Job started: {job_id}")
+        print(f"📂 Workspace: {vfs.root}")
+        print(f"📄 Logs: {log_path}")
 
         return job_id
 
@@ -81,7 +97,6 @@ class Engine:
 
         with open(manifest_file) as f:
             manifest_data = yaml.safe_load(f)
-
             manifest = StrategyManifest(**manifest_data)
 
         runtime_file = path / "runtime.yaml"
@@ -102,13 +117,8 @@ class Engine:
         等待任务完成并发送完成事件
         （简化版，实际应该监听 Executor 的状态）
         """
-        # 这里应该由 Executor 提供 wait() 方法
-        # 或者通过监听 workspace/status.json 的变化
-        logger.info(f"[Engine] Waiting for {job_id} to complete...")
 
-        # TODO: 实际的等待逻辑
-        # 1. 监听 status.json 的变化
-        # 2. 或者调用 executor.wait(task_id)
+        logger.info(f"[Engine] Waiting for {job_id} to complete...")
 
         duration = time.time() - start_time
 

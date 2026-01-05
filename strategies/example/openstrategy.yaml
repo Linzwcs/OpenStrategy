@@ -1,0 +1,5 @@
+# test_strategy/manifest.yaml
+name: "echo-test"
+version: "0.1.0"
+entry_module: "main"
+entry_point: "run"

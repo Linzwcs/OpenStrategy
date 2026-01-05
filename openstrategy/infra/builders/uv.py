@@ -5,15 +5,16 @@ import shutil
 from pathlib import Path
 import re
 from typing import Optional
-from ...protocol import RuntimeConfig, ExecutionContext, StrategyAsset
+from ...protocol import ExecutionContext, StrategyAsset
 from ...registry import Registry
+from .base import EnvBuilder
 import logging
 
 logger = logging.getLogger("UVBuilder")
 
 
 @Registry.register_builder("uv")
-class UVBuilder:
+class UVBuilder(EnvBuilder):
 
     def __init__(self, cache_dir: Optional[str] = None):
         if cache_dir:
@@ -33,20 +34,12 @@ class UVBuilder:
             )
 
     def prepare(self, strategy: StrategyAsset) -> ExecutionContext:
-        """
-        准备执行上下文
-        """
 
         env_dir = self._prepare_venv(strategy.runtime)
 
-        # 2. 准备策略代码 (Shadow Package) - 每次运行都重新同步代码
         safe_pkg_name, shadow_path = self._prepare_shadow_package(strategy)
 
-        # 3. 构造上下文
-        # 关键：将 shadow_path 的父目录加入 PYTHONPATH，这样 python 才能 import safe_pkg_name
         python_exe = str(env_dir / "bin" / "python")
-
-        # 构造 PYTHONPATH: 包含 Shadow 根目录 + 原始 PYTHONPATH
         python_path = str(shadow_path.parent)
 
         logger.info(f"[UVBuilder] Strategy mapped to package: {safe_pkg_name}")
@@ -64,8 +57,9 @@ class UVBuilder:
             python_version=strategy.runtime.python_version,
             strategy_package_name=safe_pkg_name)
 
-    def _prepare_venv(self, runtime: RuntimeConfig) -> Path:
-        env_hash = self._compute_env_hash(runtime)
+    def _prepare_venv(self, strategy: StrategyAsset) -> Path:
+        runtime = strategy.runtime
+        env_hash = self.get_cache_key(strategy)
         env_dir = self.venv_root / env_hash
 
         if env_dir.exists() and (env_dir / "pyvenv.cfg").exists():
@@ -79,7 +73,6 @@ class UVBuilder:
             str(env_dir), "--python", runtime.python_version, "--seed"
         ]
         subprocess.run(cmd_venv, check=True, capture_output=True)
-
         if runtime.dependencies:
             logger.info(
                 f"   Installing {len(runtime.dependencies)} dependencies...")
@@ -98,16 +91,11 @@ class UVBuilder:
                 ["uv", "pip", "install", "--python",
                  str(python_exe), *deps],
                 check=True)
-
         return env_dir
 
     def _prepare_shadow_package(self,
                                 strategy: StrategyAsset) -> tuple[str, Path]:
-        """
-        创建影子包
-        Source: strategy_root/strategy-code/
-        Dest:   shadows/os_strat_xxx/os_strat_xxx/
-        """
+
         safe_name = self._generate_safe_package_name(strategy.manifest.name,
                                                      str(strategy.path))
 
@@ -118,7 +106,6 @@ class UVBuilder:
             shutil.rmtree(base_dir)
 
         target_package_dir.mkdir(parents=True)
-
         src_code_dir = strategy.path / "strategy"
 
         logger.info(
@@ -151,12 +138,3 @@ class UVBuilder:
         hash_suffix = hashlib.md5(unique_key.encode()).hexdigest()[:8]
 
         return f"os_strat_{clean_name}_{hash_suffix}"
-
-    def _compute_env_hash(self, runtime: RuntimeConfig) -> str:
-        content = f"{runtime.python_version}\n"
-        deps = sorted([
-            str(d) if isinstance(d, str) else f"{d.name}-{d.version}"
-            for d in runtime.dependencies
-        ])
-        content += "\n".join(deps)
-        return hashlib.sha256(content.encode()).hexdigest()[:12]

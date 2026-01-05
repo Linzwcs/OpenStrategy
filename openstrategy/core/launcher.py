@@ -1,4 +1,3 @@
-# core/launcher.py
 import sys
 import argparse
 import importlib
@@ -8,6 +7,7 @@ import json
 import os
 from pathlib import Path
 from openstrategy.core.context import Context
+from openstrategy.core.vfs import JobVFS
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger("Launcher")
@@ -59,10 +59,14 @@ def run():
     try:
         os.chdir(args.cwd)
         params = json.loads(args.params)
+        vfs = JobVFS(job_id=args.task_id,
+                     workspace_root=Path(params["vfs_root"]).parent)
 
         ctx = Context(task_id=args.task_id,
                       working_dir=args.cwd,
-                      params=params)
+                      params=params.get("params", {}),
+                      vfs=vfs)
+
         entry_func = load_entry_function(args.cwd, args.module, args.func)
 
         logger.info(f">>> [Exec] {args.module}.{args.func}(ctx)")

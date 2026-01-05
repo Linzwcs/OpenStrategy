@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from rich.console import Console
 from openstrategy.engine import Engine, DEFAULT_CONFIG
 from openstrategy.events import EventBus, ProgressBarListener
-from omegaconf import OmegaConf  # 确保已安装 omegaconf
+from omegaconf import OmegaConf
 import openstrategy.infra
 
 console = Console()
