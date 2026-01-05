@@ -20,7 +20,7 @@ class UVBuilder(EnvBuilder):
         if cache_dir:
             self.root = Path(cache_dir)
         else:
-            self.root = Path.home() / ".cache" / "opensynth"
+            self.root = Path.home() / ".cache" / "openstrategy"
 
         self.venv_root = self.root / "venvs"
         self.shadow_root = self.root / "shadows"
