@@ -8,7 +8,7 @@ version = "0.0.1"
 description = "The Steam Platform for Strategy Execution"
 readme = "README.md"
 authors = [
-  { name = "OpenSynth Team", email = "zhilin.nlp@gmail.com" },
+  { name = "openstrategy Team", email = "zhilin.nlp@gmail.com" },
 ]
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -40,7 +40,7 @@ sdk = [
 
 [project.scripts]
 
-opensynth = "opensynth.cli:cli"
+openstrategy = "openstrategy.cli:cli"
 
 [tool.setuptools.packages.find]
-include = ["opensynth*", "opensynth_sdk*"]
+include = ["openstrategy*", "openstrategy_sdk*"]
