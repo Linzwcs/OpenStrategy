@@ -35,7 +35,7 @@ class UVBuilder(EnvBuilder):
 
     def prepare(self, strategy: StrategyAsset) -> ExecutionContext:
 
-        env_dir = self._prepare_venv(strategy.runtime)
+        env_dir = self._prepare_venv(strategy)
 
         safe_pkg_name, shadow_path = self._prepare_shadow_package(strategy)
 
@@ -106,7 +106,7 @@ class UVBuilder(EnvBuilder):
             shutil.rmtree(base_dir)
 
         target_package_dir.mkdir(parents=True)
-        src_code_dir = strategy.path / "strategy"
+        src_code_dir = strategy.path / "src"
 
         logger.info(
             f"[UVBuilder] Copying code from {src_code_dir} -> {target_package_dir}"

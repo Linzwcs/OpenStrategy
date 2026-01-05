@@ -27,7 +27,7 @@ class LocalExecutor(Executor):
         framework_root = str(Path(openstrategy.__file__).parent.parent)
         final_env["PYTHONPATH"] = framework_root + os.pathsep + final_env.get(
             "PYTHONPATH", "")
-        print(final_env)
+        
         if "gpu_indices" in resources:
             gpu_str = ",".join(map(str, resources["gpu_indices"]))
             final_env["CUDA_VISIBLE_DEVICES"] = gpu_str

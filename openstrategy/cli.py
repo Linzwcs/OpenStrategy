@@ -9,11 +9,9 @@ import openstrategy.infra
 
 console = Console()
 
-
 @click.group()
 def cli():
     pass
-
 
 @cli.command(context_settings=dict(
     ignore_unknown_options=True,

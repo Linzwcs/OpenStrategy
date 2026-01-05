@@ -90,7 +90,7 @@ class Engine:
         path = Path(strategy_path)
 
         # 加载 manifest
-        manifest_file = path / "manifest.yaml"
+        manifest_file = path / "openstrategy.yaml"
         if not manifest_file.exists():
             raise FileNotFoundError(
                 f"manifest.yaml not found in {strategy_path}")

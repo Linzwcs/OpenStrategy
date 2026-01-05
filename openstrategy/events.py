@@ -5,7 +5,6 @@ from enum import Enum
 
 
 class EventType(str, Enum):
-    """事件类型枚举"""
     JOB_STARTED = "job_started"
     JOB_COMPLETED = "job_completed"
     JOB_FAILED = "job_failed"
@@ -17,7 +16,6 @@ class EventType(str, Enum):
 
 @dataclass
 class Event:
-    """事件基类"""
     type: EventType
     timestamp: datetime
     job_id: str
@@ -25,8 +23,8 @@ class Event:
 
 @dataclass
 class JobStarted(Event):
+    
     strategy_name: str
-
     def __init__(
         self,
         job_id: str,
