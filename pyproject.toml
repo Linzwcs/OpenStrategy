@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openstrategy"
+version = "0.0.1"
+description = "The Steam Platform for Strategy Execution"
+readme = "README.md"
+authors = [
+  { name = "OpenSynth Team", email = "zhilin.nlp@gmail.com" },
+]
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+
+dependencies = [
+    "pydantic>=2.0.0",  
+    "pyyaml>=6.0",      
+    "rich>=13.0.0",      
+    "typer>=0.9.0",    
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort"
+]
+sdk = [
+    "tqdm",
+    "numpy" # 示例
+]
+
+[project.scripts]
+
+opensynth = "opensynth.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["opensynth*", "opensynth_sdk*"]
