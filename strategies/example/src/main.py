@@ -1,5 +1,7 @@
+from openstrategy.core.context import Context
 
-def run(ctx):
+
+def run(ctx: Context):
     print(f"📌 Task ID: {ctx.task_id}")
     print(f"📂 Inputs dir: {ctx.inputs}")
     print(f"📂 Outputs dir: {ctx.outputs}")
@@ -7,9 +9,9 @@ def run(ctx):
     if list(ctx.inputs.iterdir()):
         print(f"✅ Found inputs: {list(ctx.inputs.iterdir())}")
     print(f"=========strat args==========")
-    for k,v in ctx.params.items():
+    for k, v in ctx.params.items():
         print(f"{k}: {v}")
-    print(f"=========end args==========")     
+    print(f"=========end args==========")
     output_file = ctx.outputs / "result.txt"
     output_file.write_text("Hello from OpenSynth!")
     print(f"✅ Wrote output: {output_file}")
