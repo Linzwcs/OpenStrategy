@@ -7,7 +7,6 @@ from typing import Any, List, Dict, Optional, Union
 from .args import StrategyArgs
 
 def _eval_type(type_node, safe_globals):
-    """尝试将 AST 类型节点转换为真实的 Python 类型对象"""
     try:
         type_str = ast.unparse(type_node)
         return eval(type_str, safe_globals)
