@@ -23,8 +23,9 @@ class Event:
 
 @dataclass
 class JobStarted(Event):
-    
+
     strategy_name: str
+
     def __init__(
         self,
         job_id: str,
@@ -113,10 +114,7 @@ class WorkerLog(Event):
 
 
 class EventBus:
-    """
-    全局事件总线 - 解耦组件间通信
-    类似 Steam 的成就系统，任何组件都可以发布/订阅事件
-    """
+
     _subscribers: Dict[EventType, List[Callable]] = {}
     _global_subscribers: List[Callable] = []
 
@@ -138,15 +136,13 @@ class EventBus:
 
     @classmethod
     def emit(cls, event: Event):
-        """发布事件"""
-        # 通知全局订阅者
+
         for callback in cls._global_subscribers:
             try:
                 callback(event)
             except Exception as e:
                 print(f"[EventBus] Error in global subscriber: {e}")
 
-        # 通知特定类型订阅者
         if event.type in cls._subscribers:
             for callback in cls._subscribers[event.type]:
                 try:
@@ -156,13 +152,12 @@ class EventBus:
 
     @classmethod
     def clear(cls):
-        """清空所有订阅（主要用于测试）"""
+
         cls._subscribers.clear()
         cls._global_subscribers.clear()
 
 
 class ProgressBarListener:
-    """进度条监听器（可对接 rich/tqdm）"""
 
     def __init__(self):
         self.bars = {}
