@@ -5,13 +5,14 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import time
 import logging
-
+from dataclasses import asdict
 from openstrategy.registry import Registry
 from openstrategy.workspace import Workspace
 from openstrategy.hub.client import HubClient
 from openstrategy.protocol import RuntimeConfig, StrategyManifest, StrategyAsset
 from openstrategy.events import EventBus, JobStarted, JobCompleted, JobFailed
 from openstrategy.core.vfs import JobVFS
+from openstrategy.core.args import PlatformArgs, StrategyArgs
 
 logger = logging.getLogger("Engine")
 
@@ -29,10 +30,13 @@ class Engine:
     def __init__(self, config: dict):
         self.config = config
 
-        # 从 Registry 加载插件
+        # 1. 获取 builder 配置
         builder_config = config['infra']['builder']
+        # 如果 CLI 传入 backend=docker，这里 builder_config['type'] 就是 'docker'
+        
+        # 2. 获取 executor 配置
         executor_config = config['infra']['executor']
-
+       
         builder_cls = Registry.get_builder(builder_config['type'])
         executor_cls = Registry.get_executor(executor_config['type'])
 
@@ -40,7 +44,7 @@ class Engine:
         self.executor = executor_cls(**executor_config.get('params', {}))
         self.hub = HubClient()
 
-    def run_job(self, strategy_id: str, strategy_args: dict) -> str:
+    def run_job(self, strategy_id: str, platform_args: PlatformArgs, strategy_args: StrategyArgs) -> str:
         job_id = f"job_{uuid.uuid4().hex[:8]}"
 
         vfs = JobVFS(job_id, workspace_root=Path("runs"))
@@ -50,31 +54,47 @@ class Engine:
 
         exec_context = self.builder.prepare(asset)
 
-        if "input_file" in strategy_args:
-            staged_path = vfs.stage_input(strategy_args["input_file"])
-            strategy_args["input_file"] = str(staged_path)
+        # === 1. 处理文件挂载 (注意：strategy_args 是对象，不是字典) ===
+        # StrategyArgs 基类中定义了 input_file
+        if getattr(strategy_args, "input_file", None):
+            staged_path = vfs.stage_input(strategy_args.input_file)
+            strategy_args.input_file = str(staged_path)
 
-        context_data = {
+        # === 2. 序列化参数 ===
+        # 将 Dataclass 转回字典，以便 JSON 传输
+        context_payload = {
             "task_id": job_id,
-            "working_dir": exec_context.working_dir,
-            "params": strategy_args,
-            "vfs_root": str(vfs.root)
+            "working_dir": str(exec_context.working_dir),
+            "vfs_root": str(vfs.root),
+            
+            # 核心：传递分类好的参数字典
+            "args": {
+                "platform": asdict(platform_args),
+                "strategy": asdict(strategy_args)
+            },
+            
+            # 保留旧的 params 字段以兼容旧代码 (Flattened version)
+            "params": asdict(strategy_args) 
         }
 
+        # === 3. 启动命令 ===
+        # 注意：Launcher 接收的是序列化后的 JSON 字符串
         launcher_cmd = [
-            "-m", "openstrategy.core.launcher", "--task-id", job_id, "--cwd",
-            str(exec_context.working_dir), "--module",
-            asset.manifest.entry_module, "--func", asset.manifest.entry_point,
-            "--params",
-            json.dumps(context_data)
+            "-m", "openstrategy.core.launcher", 
+            "--task-id", job_id, 
+            "--cwd", str(exec_context.working_dir), 
+            "--module", asset.manifest.entry_module, 
+            "--func", asset.manifest.entry_point,
+            "--params", json.dumps(context_payload) # <--- 传递 JSON
         ]
 
         log_path = str(vfs.logs / "worker.log")
-        task_id = self.executor.submit(cmd=launcher_cmd,
-                                       context=exec_context,
-                                       resources=self.config['infra'].get(
-                                           'resources', {}),
-                                       log_path=log_path)
+        task_id = self.executor.submit(
+            cmd=launcher_cmd,
+            context=exec_context,
+            resources=self.config['infra'].get('resources', {}),
+            log_path=log_path
+        )
 
         print(f"📋 Job started: {job_id}")
         print(f"📂 Workspace: {vfs.root}")

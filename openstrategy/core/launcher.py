@@ -6,12 +6,30 @@ import traceback
 import json
 import os
 from pathlib import Path
+import inspect
+from dataclasses import fields, is_dataclass
 from openstrategy.core.context import Context
 from openstrategy.core.vfs import JobVFS
-
+from openstrategy.core.args import PlatformArgs, StrategyArgs
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger("Launcher")
 
+
+def hydrate_strategy_args(module, data: dict) -> StrategyArgs:
+
+    TargetClass = StrategyArgs
+    
+    for name, obj in inspect.getmembers(module):
+        if (inspect.isclass(obj) and 
+            issubclass(obj, StrategyArgs) and 
+            obj is not StrategyArgs):
+            TargetClass = obj
+            break
+        
+    valid_keys = {f.name for f in fields(TargetClass)}
+    clean_data = {k: v for k, v in data.items() if k in valid_keys}
+
+    return TargetClass(**clean_data)
 
 def load_entry_function(working_dir: str, module_name: str, func_name: str):
     if working_dir not in sys.path:
@@ -36,48 +54,62 @@ def load_entry_function(working_dir: str, module_name: str, func_name: str):
 
     return func
 
-
 def run():
     parser = argparse.ArgumentParser(description="OpenSynth Generic Launcher")
-
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--cwd", required=True)
-
-    parser.add_argument("--module",
-                        required=True,
-                        help="Entry python module (e.g. main)")
-    parser.add_argument("--func",
-                        required=True,
-                        help="Entry function name (e.g. run)")
-
+    parser.add_argument("--module", required=True)
+    parser.add_argument("--func", required=True)
     parser.add_argument("--params", required=True, help="JSON encoded config")
 
     args = parser.parse_args()
 
-    ctx = None
-
     try:
         os.chdir(args.cwd)
-        params = json.loads(args.params)
+        payload = json.loads(args.params) 
+        
+        if args.cwd not in sys.path:
+            sys.path.insert(0, args.cwd)
+
         vfs = JobVFS(job_id=args.task_id,
-                     workspace_root=Path(params["vfs_root"]).parent)
+                     workspace_root=Path(payload["vfs_root"]).parent)
 
-        ctx = Context(task_id=args.task_id,
-                      working_dir=args.cwd,
-                      params=params.get("params", {}),
-                      vfs=vfs)
+        try:
+            user_module = importlib.import_module(args.module)
+        except ImportError as e:
+            raise RuntimeError(f"Failed to import user module '{args.module}': {e}")
 
-        entry_func = load_entry_function(args.cwd, args.module, args.func)
+     
+        args_dict = payload.get("args", {})
+        
+        platform_data = args_dict.get("platform", {})
+        platform_obj = PlatformArgs(**platform_data)
+        
+        strategy_data = args_dict.get("strategy", payload.get("params", {}))
+        strategy_obj = hydrate_strategy_args(user_module, strategy_data)
 
+        ctx = Context(
+            task_id=args.task_id,
+            working_dir=args.cwd,
+            strategy_args=strategy_obj,      
+            platform_args=platform_obj,  
+            params=payload.get("params", {}),
+            vfs=vfs
+        )
+
+        if not hasattr(user_module, args.func):
+            raise RuntimeError(f"Function '{args.func}' not found in {args.module}")
+            
+        entry_func = getattr(user_module, args.func)
+        
         logger.info(f">>> [Exec] {args.module}.{args.func}(ctx)")
-        entry_func(ctx)
+        entry_func(ctx, strategy_obj)
         logger.info("<<< [Done] Execution finished successfully.")
 
     except Exception as e:
         logger.error(f"Execution failed: {e}")
         traceback.print_exc()
         sys.exit(1)
-
 
 if __name__ == "__main__":
     run()
