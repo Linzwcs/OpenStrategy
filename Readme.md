@@ -8,9 +8,9 @@
 
 ## 📖 简介 (Introduction)
 
-在数据合成、算法交易、科学计算等领域，我们经常面临**"过程资产碎片化"**的挑战：代码写在 Notebook 里、依赖环境难以复现、硬编码的路径导致无法迁移、业务逻辑与计算基础设施耦合过深。
+在数据合成、算法交易、科学计算等领域，我们经常面临"过程资产碎片化"的挑战：代码写在 Notebook 里、依赖环境难以复现、硬编码的路径导致无法迁移、业务逻辑与计算基础设施耦合过深。
 
-**OpenStrategy** 是一个旨在解决这些问题的现代化框架。它定义了一套标准的策略包规范（OpenSynth Package），通过**渐进式沙箱**技术，让你的策略代码实现 **Write Once, Run Anywhere**。我们希望无论是在笔记本电脑、Slurm 集群还是 Kubernetes 上，OpenStrategy 都能保证执行的一致性。
+**OpenStrategy** 是一个旨在解决这些问题的现代化框架。它定义了一套标准的策略包规范（OpenSynth Package），通过约定启动协议与构建隔离环境，让你的策略代码实现 **Write Once, Run Anywhere**。我们希望无论是在笔记本电脑、Slurm 集群还是 Kubernetes 上，OpenStrategy 都能保证执行的一致性。
 
 ### 核心理念
 
